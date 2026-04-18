@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --background:    #FAFAFA;
+  --surface:       #FFFFFF;
+  --surface-2:     #F4F4F4;
+  --surface-3:     #EFEFEF;
+
+  /* Borders */
+  --border:        #E4E4E4;
+  --border-strong: #C8C8C8;
+
+  /* Text */
+  --foreground:    #0C0C0C;
+  --muted:         #6B6B6B;
+  --subtle:        #A8A8A8;
+
+  /* Accent — PostHog orange */
+  --accent:        #F54E00;
+  --accent-hover:  #D94400;
+  --accent-subtle: #FEF0EB;
+  --accent-border: #FBBFA0;
+
+  /* Typography */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
+
+  /* ── ShadCN variable overrides ─────────────────────────────── */
+  --radius: 6px;
+
+  --background: 0 0% 98%;
+  --foreground: 0 0% 5%;
+
+  --card:            0 0% 100%;
+  --card-foreground: 0 0% 5%;
+
+  --popover:            0 0% 100%;
+  --popover-foreground: 0 0% 5%;
+
+  --primary:            21 90% 48%;    /* PostHog orange */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary:            0 0% 96%;
+  --secondary-foreground: 0 0% 5%;
+
+  --muted:            0 0% 96%;
+  --muted-foreground: 0 0% 42%;
+
+  --accent:            21 90% 48%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive:            0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 0 0% 89%;
+  --input:  0 0% 89%;
+  --ring:   21 90% 48%;
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+html, body, #__next {
+  height: 100%;
+  font-family: var(--font-sans);
+  background: #FAFAFA;
+  color: #0C0C0C;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility classes ───────────────────────────────────────────── */
+.font-mono { font-family: var(--font-mono) !important; }
+.text-accent { color: var(--accent) !important; }
+
+/* ── Recharts overrides — match our design system ─────────────── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #E4E4E4;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.recharts-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: #A8A8A8;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #E4E4E4; }
+::-webkit-scrollbar-thumb:hover { background: #C8C8C8; }

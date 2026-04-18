@@ -1,0 +1,29 @@
+.DS_Store
+.env*.local
+.env
+
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Local caches
+.turbo/
+.vercel/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# SQLite / local DB artifacts
+*.db
+*.db-*
+
