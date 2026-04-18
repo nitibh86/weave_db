@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { collect } from '@/lib/collect'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 // Collection can take ~2 min — bump the timeout
 export const maxDuration = 300

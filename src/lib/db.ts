@@ -1,13 +1,30 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'impact.db')
+function defaultDbPath(): string {
+  if (process.env.DB_PATH) return process.env.DB_PATH
+  // Vercel/Serverless filesystems are typically read-only except /tmp.
+  if (process.env.VERCEL) return path.join('/tmp', 'impact.db')
+  return path.join(process.cwd(), 'impact.db')
+}
+
+let dbPath = defaultDbPath()
 
 let _db: Database.Database | null = null
 
 export function getDb(): Database.Database {
   if (!_db) {
-    _db = new Database(DB_PATH)
+    try {
+      _db = new Database(dbPath)
+    } catch (err) {
+      // If the default path isn't writable (common on Vercel), fall back to /tmp.
+      if (!process.env.DB_PATH && dbPath !== path.join('/tmp', 'impact.db')) {
+        dbPath = path.join('/tmp', 'impact.db')
+        _db = new Database(dbPath)
+      } else {
+        throw err
+      }
+    }
     _db.pragma('journal_mode = WAL')
     _db.pragma('synchronous = NORMAL')
     initSchema(_db)
