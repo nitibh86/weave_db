@@ -26,4 +26,4 @@ pnpm-debug.log*
 # SQLite / local DB artifacts
 *.db
 *.db-*
-
+!data/impact.db

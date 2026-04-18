@@ -1,33 +1,51 @@
 import Database from 'better-sqlite3'
+import fs from 'fs'
 import path from 'path'
 
-function defaultDbPath(): string {
-  if (process.env.DB_PATH) return process.env.DB_PATH
-  // Vercel/Serverless filesystems are typically read-only except /tmp.
-  if (process.env.VERCEL) return path.join('/tmp', 'impact.db')
-  return path.join(process.cwd(), 'impact.db')
+type DbConfig = { dbPath: string; readonly: boolean }
+
+function defaultDbConfig(): DbConfig {
+  if (process.env.DB_PATH) return { dbPath: process.env.DB_PATH, readonly: false }
+
+  if (process.env.VERCEL) {
+    // Prefer a bundled, read-only DB when deployed (fast startup, no writes required).
+    const bundled = path.join(process.cwd(), 'data', 'impact.db')
+    if (fs.existsSync(bundled)) return { dbPath: bundled, readonly: true }
+
+    // Fallback: writable /tmp for cases where you want to run collection in production.
+    return { dbPath: path.join('/tmp', 'impact.db'), readonly: false }
+  }
+
+  return { dbPath: path.join(process.cwd(), 'impact.db'), readonly: false }
 }
 
-let dbPath = defaultDbPath()
+let dbConfig = defaultDbConfig()
 
 let _db: Database.Database | null = null
 
 export function getDb(): Database.Database {
   if (!_db) {
     try {
-      _db = new Database(dbPath)
+      _db = new Database(dbConfig.dbPath, {
+        readonly: dbConfig.readonly,
+        fileMustExist: dbConfig.readonly,
+      })
     } catch (err) {
       // If the default path isn't writable (common on Vercel), fall back to /tmp.
-      if (!process.env.DB_PATH && dbPath !== path.join('/tmp', 'impact.db')) {
-        dbPath = path.join('/tmp', 'impact.db')
-        _db = new Database(dbPath)
+      const tmp = path.join('/tmp', 'impact.db')
+      if (!process.env.DB_PATH && dbConfig.dbPath !== tmp && !dbConfig.readonly) {
+        dbConfig = { dbPath: tmp, readonly: false }
+        _db = new Database(dbConfig.dbPath)
       } else {
         throw err
       }
     }
-    _db.pragma('journal_mode = WAL')
-    _db.pragma('synchronous = NORMAL')
-    initSchema(_db)
+
+    if (!dbConfig.readonly) {
+      _db.pragma('journal_mode = WAL')
+      _db.pragma('synchronous = NORMAL')
+      initSchema(_db)
+    }
   }
   return _db
 }

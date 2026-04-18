@@ -93,12 +93,12 @@ export default function DashboardPage() {
         {/* Empty — collection running server-side on startup */}
         {isEmpty && (
           <div className="flex flex-col items-center justify-center w-full gap-3">
-            <p className="font-sans text-[14px] text-[#6B6B6B]">Collecting data…</p>
+            <p className="font-sans text-[14px] text-[#6B6B6B]">Loading data…</p>
             <p className="font-mono text-[12px] text-[#A8A8A8]">
-              Fetching PRs from GitHub. This takes ~2 minutes.
+              No scores yet. If you just deployed, make sure a DB is available or run collection.
             </p>
             <p className="font-mono text-[11px] text-[#C8C8C8]">
-              Watch server logs for progress, then click refresh.
+              Check Vercel logs for errors, then click refresh.
             </p>
           </div>
         )}
