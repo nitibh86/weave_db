@@ -7,6 +7,7 @@ import { RankList } from '@/components/RankList'
 import { DetailPanel } from '@/components/DetailPanel'
 
 export default function DashboardPage() {
+  const UI_SCALE = 1.25
   const { scores: top5,    isLoading: loadingTop, error: topErr,  refresh: refreshTop  } = useScores(5)
   const { scores: allEngs, isLoading: loadingAll,                  refresh: refreshAll  } = useAllScores()
   const { summary, refresh: refreshSummary } = useSummary(3)
@@ -31,7 +32,16 @@ export default function DashboardPage() {
   const isEmpty = !loadingTop && !topErr && top5.length === 0
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden bg-[#FAFAFA]">
+    <div className="h-dvh w-full overflow-hidden bg-[#FAFAFA]">
+      <div
+        className="flex flex-col h-full overflow-hidden"
+        style={{
+          transform: `scale(${UI_SCALE})`,
+          transformOrigin: 'top left',
+          width: `calc(100% / ${UI_SCALE})`,
+          height: `calc(100dvh / ${UI_SCALE})`,
+        }}
+      >
 
       {/* ── Header ────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-5 border-b border-[#E4E4E4] h-[44px] flex-shrink-0 bg-white">
@@ -117,6 +127,7 @@ export default function DashboardPage() {
             />
           </>
         )}
+      </div>
       </div>
     </div>
   )

@@ -32,12 +32,12 @@ function EngineerRadar({ engineer }: { engineer: EngineerScore }) {
       </span>
 
       <RadarChart
-        width={220}
-        height={188}
+        width={252}
+        height={212}
         data={data}
         cx="50%"
-        cy="52%"
-        outerRadius={65}
+        cy="56%"
+        outerRadius={58}
       >
         <PolarGrid
           stroke="#FBBFA0"
@@ -169,8 +169,8 @@ export function BottomPanel({
 
       {/* ── Left: radar ───────────────────────────────────────────── */}
       <div
-        className="flex flex-col px-8 border-r border-[#E4E4E4] flex-shrink-0"
-        style={{ width: 272 }}
+        className="flex flex-col px-9 border-r border-[#E4E4E4] flex-shrink-0"
+        style={{ width: 312 }}
       >
         <EngineerRadar engineer={engineer} />
       </div>
