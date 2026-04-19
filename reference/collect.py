@@ -40,6 +40,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import requests
+from requests.exceptions import RequestException
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ query($cursor: String) {
       pageInfo { hasNextPage endCursor }
       nodes {
         number
+        title
         mergedAt
         createdAt
         author   { login }
@@ -111,7 +113,8 @@ CREATE TABLE IF NOT EXISTS pr_directories (
     merged_at     TEXT    NOT NULL,   -- ISO-8601
     directories   TEXT    NOT NULL,   -- JSON array of unique top-level dirs
     linked_issues TEXT    NOT NULL,   -- JSON array of ints  (Closes #N)
-    labels        TEXT    NOT NULL    -- JSON array of label name strings
+    labels        TEXT    NOT NULL,   -- JSON array of label name strings
+    title         TEXT    NOT NULL DEFAULT ''  -- PR title (conventional-commit intent fallback)
 );
 
 CREATE TABLE IF NOT EXISTS pr_reviews (
@@ -150,20 +153,37 @@ def dirs_from_paths(paths: list[str]) -> list[str]:
 def paginate() -> list[dict]:
     """
     Cursor-paginate through MERGED PRs newest-first, stopping when
-    mergedAt falls outside the DAYS window.
+    we reach pages with zero PRs inside the DAYS window.
+
+    Note: GitHub's `pullRequests` ordering is not guaranteed to be monotonic
+    in `mergedAt` (we sort by UPDATED_AT), so we must not stop on the first
+    out-of-window PR within a page.
     """
     cursor, prs, page_num = None, [], 0
 
     while True:
         page_num += 1
-        resp = requests.post(
-            GQL_URL,
-            headers=HEADERS,
-            json={"query": QUERY, "variables": {"cursor": cursor}},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
+        last_err: Exception | None = None
+        for attempt in range(1, 6):
+            try:
+                resp = requests.post(
+                    GQL_URL,
+                    headers=HEADERS,
+                    json={"query": QUERY, "variables": {"cursor": cursor}},
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+                last_err = None
+                break
+            except RequestException as e:
+                last_err = e
+                wait = min(2 ** (attempt - 1), 10)
+                print(f"  Request failed (attempt {attempt}/5): {e.__class__.__name__} — retrying in {wait}s")
+                time.sleep(wait)
+
+        if last_err is not None:
+            raise last_err
 
         if "errors" in payload:
             # Surface but don't crash — partial data is better than nothing
@@ -177,13 +197,16 @@ def paginate() -> list[dict]:
         in_window = 0
         for pr in nodes:
             merged_dt = parse_iso(pr.get("mergedAt"))
-            if not merged_dt or merged_dt < SINCE:
-                has_next = False   # newest-first; once past window we're done
-                break
-            prs.append(pr)
-            in_window += 1
+            if merged_dt and merged_dt >= SINCE:
+                prs.append(pr)
+                in_window += 1
 
         print(f"  Page {page_num}: {in_window} PRs in window (total: {len(prs)})")
+
+        # Once we hit a page with no in-window PRs, later pages will be older
+        # (by UPDATED_AT) and extremely unlikely to contain in-window merges.
+        if in_window == 0:
+            has_next = False
 
         if not has_next:
             break
@@ -205,6 +228,7 @@ def transform(prs: list[dict]) -> tuple[list[tuple], list[tuple]]:
 
     for pr in prs:
         number    = pr["number"]
+        title     = pr.get("title") or ""
         merged_at = pr.get("mergedAt")
         opened_at = pr.get("createdAt")
         author    = (pr.get("author") or {}).get("login", "ghost")
@@ -220,6 +244,7 @@ def transform(prs: list[dict]) -> tuple[list[tuple], list[tuple]]:
             json.dumps(dirs_from_paths(files)),
             json.dumps([int(x) for x in CLOSES_RE.findall(body)]),
             json.dumps(labels),
+            title,
         ))
 
         opened_dt = parse_iso(opened_at)
@@ -253,6 +278,12 @@ def main() -> None:
     conn.executescript(SCHEMA)
     conn.commit()
 
+    # Migrate existing DBs that pre-date the title column
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(pr_directories)").fetchall()]
+    if "title" not in cols:
+        conn.execute("ALTER TABLE pr_directories ADD COLUMN title TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+
     print(f"Fetching merged PRs — last {DAYS} days…")
     prs = paginate()
     print(f"\nTotal: {len(prs)} PRs fetched")
@@ -261,7 +292,10 @@ def main() -> None:
     dir_rows, review_rows = transform(prs)
 
     conn.executemany(
-        "INSERT OR REPLACE INTO pr_directories VALUES (?,?,?,?,?,?)", dir_rows
+        "INSERT OR REPLACE INTO pr_directories "
+        "(pr_number, author_login, merged_at, directories, linked_issues, labels, title) "
+        "VALUES (?,?,?,?,?,?,?)",
+        dir_rows,
     )
     conn.executemany(
         "INSERT OR REPLACE INTO pr_reviews VALUES (?,?,?,?,?,?,?,?)", review_rows

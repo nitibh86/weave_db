@@ -212,15 +212,13 @@ export async function collect(days = 90): Promise<{
     let   hasNext  = page.pageInfo.hasNextPage
     cursor         = page.pageInfo.endCursor
 
-    // Filter nodes within the time window (results are newest-first)
+    // Filter nodes within the time window.
+    // GitHub ordering is not guaranteed to be monotonic in `mergedAt`, so we
+    // must not stop early on the first out-of-window PR in a page.
     const inWindow: GQLNode[] = []
     for (const pr of nodes) {
       const mergedDt = pr.mergedAt ? new Date(pr.mergedAt) : null
-      if (!mergedDt || mergedDt < since) {
-        hasNext = false
-        break
-      }
-      inWindow.push(pr)
+      if (mergedDt && mergedDt >= since) inWindow.push(pr)
     }
 
     if (inWindow.length > 0) {
@@ -230,6 +228,7 @@ export async function collect(days = 90): Promise<{
     const oldest = inWindow.at(-1)?.mergedAt ?? '—'
     console.log(`[collect] page ${pageNum}: +${inWindow.length} PRs (total: ${prCount}) oldest: ${oldest}`)
 
+    if (inWindow.length === 0) hasNext = false
     if (!hasNext) break
 
     await sleep(200)
