@@ -2,21 +2,26 @@ import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
 
-type DbConfig = { dbPath: string; readonly: boolean }
+type DbConfig = { dbPath: string }
 
 function defaultDbConfig(): DbConfig {
-  if (process.env.DB_PATH) return { dbPath: process.env.DB_PATH, readonly: false }
+  if (process.env.DB_PATH) return { dbPath: process.env.DB_PATH }
 
   if (process.env.VERCEL) {
-    // Prefer a bundled, read-only DB when deployed (fast startup, no writes required).
+    // Vercel is read-only except /tmp. Seed /tmp from a bundled DB if present.
+    const tmp = path.join('/tmp', 'impact.db')
     const bundled = path.join(process.cwd(), 'data', 'impact.db')
-    if (fs.existsSync(bundled)) return { dbPath: bundled, readonly: true }
-
-    // Fallback: writable /tmp for cases where you want to run collection in production.
-    return { dbPath: path.join('/tmp', 'impact.db'), readonly: false }
+    try {
+      if (!fs.existsSync(tmp) && fs.existsSync(bundled)) {
+        fs.copyFileSync(bundled, tmp)
+      }
+    } catch {
+      // If seeding fails, we'll attempt to create/open below.
+    }
+    return { dbPath: tmp }
   }
 
-  return { dbPath: path.join(process.cwd(), 'impact.db'), readonly: false }
+  return { dbPath: path.join(process.cwd(), 'impact.db') }
 }
 
 let dbConfig = defaultDbConfig()
@@ -26,26 +31,21 @@ let _db: Database.Database | null = null
 export function getDb(): Database.Database {
   if (!_db) {
     try {
-      _db = new Database(dbConfig.dbPath, {
-        readonly: dbConfig.readonly,
-        fileMustExist: dbConfig.readonly,
-      })
+      _db = new Database(dbConfig.dbPath)
     } catch (err) {
       // If the default path isn't writable (common on Vercel), fall back to /tmp.
       const tmp = path.join('/tmp', 'impact.db')
-      if (!process.env.DB_PATH && dbConfig.dbPath !== tmp && !dbConfig.readonly) {
-        dbConfig = { dbPath: tmp, readonly: false }
+      if (!process.env.DB_PATH && dbConfig.dbPath !== tmp) {
+        dbConfig = { dbPath: tmp }
         _db = new Database(dbConfig.dbPath)
       } else {
         throw err
       }
     }
 
-    if (!dbConfig.readonly) {
-      _db.pragma('journal_mode = WAL')
-      _db.pragma('synchronous = NORMAL')
-      initSchema(_db)
-    }
+    _db.pragma('journal_mode = WAL')
+    _db.pragma('synchronous = NORMAL')
+    initSchema(_db)
   }
   return _db
 }
