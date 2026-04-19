@@ -12,8 +12,19 @@ function defaultDbConfig(): DbConfig {
     const tmp = path.join('/tmp', 'impact.db')
     const bundled = path.join(process.cwd(), 'data', 'impact.db')
     try {
-      if (!fs.existsSync(tmp) && fs.existsSync(bundled)) {
-        fs.copyFileSync(bundled, tmp)
+      const allowProdCollect = process.env.ALLOW_PROD_COLLECT === '1'
+      if (fs.existsSync(bundled) && !allowProdCollect) {
+        const tmpExists = fs.existsSync(tmp)
+        const sameSize =
+          tmpExists && fs.statSync(tmp).size === fs.statSync(bundled).size
+
+        if (!tmpExists || !sameSize) {
+          const seedTmp = `${tmp}.seed`
+          fs.copyFileSync(bundled, seedTmp)
+          fs.renameSync(seedTmp, tmp)
+        }
+      } else if (!fs.existsSync(bundled)) {
+        console.warn('[db] bundled DB missing at', bundled, 'cwd=', process.cwd())
       }
     } catch {
       // If seeding fails, we'll attempt to create/open below.
