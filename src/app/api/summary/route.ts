@@ -35,16 +35,28 @@ export async function GET(request: Request) {
       db.prepare('SELECT MAX(merged_at) as v FROM pr_directories').get() as { v: string | null }
     ).v
 
+    const firstMergedAt = (
+      db.prepare('SELECT MIN(merged_at) as v FROM pr_directories').get() as { v: string | null }
+    ).v
+
+    const daysCovered =
+      firstMergedAt && lastMergedAt
+        ? Math.round(
+            (new Date(lastMergedAt).getTime() - new Date(firstMergedAt).getTime()) / (24 * 60 * 60 * 1000)
+          )
+        : null
+
     return NextResponse.json({
       totalPrs,
       totalEngineers,
       scoredEngineers,
       minPrs,
+      firstMergedAt,
       lastMergedAt,
+      daysCovered,
     })
   } catch (err) {
     console.error('[/api/summary]', err)
     return NextResponse.json({ error: String(err) }, { status: 500 })
   }
 }
-
