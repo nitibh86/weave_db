@@ -120,7 +120,11 @@ export function score(minPrs = 3, topN = 10): EngineerScore[] {
 
   // ── 1. Breadth + Substance from pr_directories ─────────────────
   const dirRows = db
-    .prepare('SELECT pr_number, author_login, directories, linked_issues, labels, title FROM pr_directories')
+    .prepare(`
+      SELECT pr_number, author_login, directories, linked_issues, labels, title
+      FROM pr_directories
+      ORDER BY pr_number ASC
+    `)
     .all() as PrDirectoryRow[]
 
   const prAuthors = new Map<number, string>()
@@ -223,30 +227,35 @@ export function score(minPrs = 3, topN = 10): EngineerScore[] {
   }
 
   // ── 6. Compose, sort, rank ─────────────────────────────────────
-  const scored = active.map((e, i): EngineerScore => ({
-    rank:         0,   // filled below
-    login:        e.login,
-    composite:    Math.round((bNorm[i] * wB + aNorm[i] * wA + sNorm[i] * wS) * 10) / 10,
-    breadth:      Math.round(bNorm[i] * 10) / 10,
-    acceleration: Math.round(aNorm[i] * 10) / 10,
-    substance:    Math.round(sNorm[i] * 10) / 10,
-    nPrs:         e.intentScores.length,
-    nUnblocks:    e.unblockHours.length,
-    nDirs:        e.dirsAuthored.size,
-    nCollabs:     e.collaborators.size,
-    medianUnblockH: e.unblockHours.length > 0
-      ? Math.round(median(e.unblockHours) * 10) / 10
-      : null,
-    weights,
-    topPrs: e.prs
-      .filter(p => p.title)
-      .sort((a, b) => b.intent - a.intent)
-      .slice(0, 3)
-      .map(p => ({ number: p.number, title: p.title })),
-  }))
+  // Keep full-precision composite for stable sorting; only round for display.
+  const scoredRaw = active.map((e, i) => {
+    const compositeRaw = bNorm[i] * wB + aNorm[i] * wA + sNorm[i] * wS
+    const item: EngineerScore = {
+      rank:         0,   // filled below
+      login:        e.login,
+      composite:    Math.round(compositeRaw * 10) / 10,
+      breadth:      Math.round(bNorm[i] * 10) / 10,
+      acceleration: Math.round(aNorm[i] * 10) / 10,
+      substance:    Math.round(sNorm[i] * 10) / 10,
+      nPrs:         e.intentScores.length,
+      nUnblocks:    e.unblockHours.length,
+      nDirs:        e.dirsAuthored.size,
+      nCollabs:     e.collaborators.size,
+      medianUnblockH: e.unblockHours.length > 0
+        ? Math.round(median(e.unblockHours) * 10) / 10
+        : null,
+      weights,
+      topPrs: e.prs
+        .filter(p => p.title)
+        .sort((a, b) => b.intent - a.intent)
+        .slice(0, 3)
+        .map(p => ({ number: p.number, title: p.title })),
+    }
+    return { compositeRaw, item }
+  })
 
-  return scored
-    .sort((a, b) => b.composite - a.composite)
+  return scoredRaw
+    .sort((a, b) => (b.compositeRaw - a.compositeRaw) || a.item.login.localeCompare(b.item.login))
     .slice(0, topN)
-    .map((e, i) => ({ ...e, rank: i + 1 }))
+    .map((e, i) => ({ ...e.item, rank: i + 1 }))
 }
