@@ -2,12 +2,14 @@
 
 import { useState, useCallback } from 'react'
 import { useScores, useAllScores } from '@/hooks/useScores'
+import { useSummary } from '@/hooks/useSummary'
 import { RankList } from '@/components/RankList'
 import { DetailPanel } from '@/components/DetailPanel'
 
 export default function DashboardPage() {
   const { scores: top5,    isLoading: loadingTop, error: topErr,  refresh: refreshTop  } = useScores(5)
   const { scores: allEngs, isLoading: loadingAll,                  refresh: refreshAll  } = useAllScores()
+  const { summary, refresh: refreshSummary } = useSummary(3)
 
   const [selectedIndex, setSelectedIndex] = useState(0)
 
@@ -22,11 +24,8 @@ export default function DashboardPage() {
   }, [top5])
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([refreshTop(), refreshAll()])
-  }, [refreshTop, refreshAll])
-
-  // ── Total PR count for header ────────────────────────────────────
-  const totalPrs = allEngs.reduce((s, e) => s + e.nPrs, 0)
+    await Promise.all([refreshTop(), refreshAll(), refreshSummary()])
+  }, [refreshTop, refreshAll, refreshSummary])
 
   // ── Empty / loading / error states ──────────────────────────────
   const isEmpty = !loadingTop && !topErr && top5.length === 0
@@ -49,9 +48,9 @@ export default function DashboardPage() {
             <span className="font-mono text-[11px] text-[#A8A8A8] tabular-nums">
               90 days
               <span className="mx-2 text-[#E4E4E4]">·</span>
-              {totalPrs > 0 ? `${totalPrs}+ PRs` : '—'}
+              {summary?.totalPrs ? `${summary.totalPrs}+ PRs` : '—'}
               <span className="mx-2 text-[#E4E4E4]">·</span>
-              {allEngs.length > 0 ? `${allEngs.length} engineers` : '—'}
+              {summary?.totalEngineers ? `${summary.totalEngineers} engineers` : '—'}
             </span>
           )}
 
