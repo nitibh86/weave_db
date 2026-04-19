@@ -7,7 +7,7 @@ import { RankList } from '@/components/RankList'
 import { DetailPanel } from '@/components/DetailPanel'
 
 export default function DashboardPage() {
-  const UI_SCALE = 1.25
+  const UI_SCALE = 1.125
   const { scores: top5,    isLoading: loadingTop, error: topErr,  refresh: refreshTop  } = useScores(5)
   const { scores: allEngs, isLoading: loadingAll,                  refresh: refreshAll  } = useAllScores()
   const { summary, refresh: refreshSummary } = useSummary(3)
